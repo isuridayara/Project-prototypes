@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 — Zero-Trust Biometric Auth / SYS.LAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#080a0f;--surface:#0e1117;--border:#1e2330;--text:#e8eaf0;--muted:#5a6070;--accent:#7b6cff;--accent-dim:rgba(123,108,255,0.08);}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .ambient{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;}
+  .a1{width:500px;height:500px;background:var(--accent);top:-150px;left:30%;opacity:0.07;}
+  .a2{width:300px;height:300px;background:#ff4d6a;bottom:0;right:0;opacity:0.04;}
+
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 48px;border-bottom:1px solid var(--border);background:rgba(8,10,15,0.85);backdrop-filter:blur(20px);}
+  .nav-logo{font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
+  .nav-logo span{color:var(--muted);}
+  .nav-back{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .nav-back:hover{color:var(--accent);}
+
+  .page-hero{position:relative;z-index:1;padding:140px 48px 80px;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:end;}
+  .proto-number{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+  .proto-number::before{content:'';display:block;width:32px;height:1px;background:var(--accent);}
+  .page-domain{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.25em;text-transform:uppercase;padding:4px 10px;border-radius:2px;color:var(--accent);border:1px solid rgba(123,108,255,0.3);background:rgba(123,108,255,0.05);display:inline-block;margin-bottom:24px;}
+  h1{font-size:clamp(40px,5vw,64px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;}
+  h1 .accent{color:var(--accent);}
+  .page-intro{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;}
+
+  .demo-panel{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;}
+  .section-tag{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:32px;display:flex;align-items:center;gap:16px;}
+  .section-tag::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .bio-demo{background:var(--surface);border:1px solid var(--border);padding:40px;border-radius:4px;}
+
+  /* Auth Status Ring */
+  .auth-ring-area{display:flex;align-items:center;gap:48px;margin-bottom:40px;}
+  .ring-container{position:relative;width:140px;height:140px;flex-shrink:0;}
+  .ring-svg{width:140px;height:140px;transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:var(--border);stroke-width:8;}
+  .ring-fill{fill:none;stroke-width:8;stroke-linecap:round;transition:stroke-dasharray 1s ease,stroke 0.5s;}
+  .ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-pct{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;transition:color 0.5s;}
+  .ring-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;}
+
+  .auth-info{flex:1;}
+  .auth-status{font-size:20px;font-weight:800;margin-bottom:8px;transition:color 0.5s;}
+  .auth-desc{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:16px;}
+  .auth-badge{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;padding:4px 10px;border-radius:2px;display:inline-block;}
+
+  /* Signal grid */
+  .signals-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:40px;}
+  .signal-card{background:var(--bg);border:1px solid var(--border);padding:20px;border-radius:2px;}
+  .signal-name{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}
+  .signal-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:8px;}
+  .signal-fill{height:100%;border-radius:2px;transition:width 0.6s ease;}
+  .signal-val{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;}
+
+  /* Anomaly log */
+  .anomaly-area{background:var(--bg);border:1px solid var(--border);padding:24px;}
+  .anomaly-title{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+  .anomaly-list{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow:hidden;}
+  .anomaly-item{display:flex;align-items:center;gap:12px;font-family:'Space Mono',monospace;font-size:11px;padding:8px 0;border-bottom:1px solid var(--border);}
+  .anomaly-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .anomaly-item.ok .anomaly-dot{background:#00ffc8;}
+  .anomaly-item.warn .anomaly-dot{background:#ffb800;}
+  .anomaly-item.alert .anomaly-dot{background:#ff4d6a;animation:pulse2 1s infinite;}
+  @keyframes pulse2{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,77,106,0.4)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(255,77,106,0)}}
+  .anomaly-item.ok .anomaly-msg{color:var(--muted);}
+  .anomaly-item.warn .anomaly-msg{color:#ffb800;}
+  .anomaly-item.alert .anomaly-msg{color:#ff4d6a;}
+  .anomaly-time{color:var(--border);margin-left:auto;white-space:nowrap;}
+
+  /* Scenario buttons */
+  .scenarios{display:flex;gap:12px;margin-bottom:32px;}
+  .scenario-btn{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;padding:10px 20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;border-radius:2px;transition:all 0.2s;}
+  .scenario-btn:hover,.scenario-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+
+  .content-section{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;display:grid;grid-template-columns:1fr 1fr;gap:60px;}
+  .content-block h2{font-size:28px;font-weight:800;margin-bottom:24px;letter-spacing:-0.02em;}
+  .content-block p{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;margin-bottom:16px;}
+  .step-list{list-style:none;display:flex;flex-direction:column;gap:16px;}
+  .step-item{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:2px;}
+  .step-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);border:1px solid rgba(123,108,255,0.3);padding:4px 8px;border-radius:2px;white-space:nowrap;margin-top:2px;}
+  .step-text{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;}
+  .step-text strong{color:var(--text);display:block;margin-bottom:4px;}
+  .use-cases{display:flex;flex-direction:column;gap:12px;}
+  .use-case{border-left:2px solid var(--accent);padding:12px 20px;background:var(--accent-dim);}
+  .use-case-title{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .use-case-desc{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;}
+
+  .page-nav{position:relative;z-index:1;border-top:1px solid var(--border);padding:32px 48px;display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto;}
+  .page-nav a{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .page-nav a:hover{color:var(--accent);}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .page-hero>*{animation:fadeUp 0.5s ease both;}
+  .page-hero>*:nth-child(2){animation-delay:0.1s;}
+  @media(max-width:900px){nav{padding:16px 24px;}.page-hero,.demo-panel,.content-section{padding-left:24px;padding-right:24px;}.page-hero,.content-section{grid-template-columns:1fr;}.signals-grid{grid-template-columns:1fr 1fr;}.auth-ring-area{flex-direction:column;}.page-nav{padding:24px;}}
+</style>
+</head>
+<body>
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+<nav>
+  <a href="index.html" class="nav-logo">SYS<span>.</span>LAB</a>
+  <a href="index.html" class="nav-back">← Back to Index</a>
+</nav>
+
+<div class="page-hero">
+  <div>
+    <div class="proto-number">Prototype 03</div>
+    <div class="page-domain">System Security & Access Control</div>
+    <h1>Zero-Trust<br><span class="accent">Biometric</span><br>Auth</h1>
+  </div>
+  <div>
+    <p class="page-intro">
+      Logging in once doesn't mean staying secure. The moment you step away from an unlocked device, its entire session is exposed. This prototype monitors <em>who is actually using the computer right now</em> — continuously, invisibly, with no hardware additions required.
+      <br><br>
+      The system never asks who you are. It already knows — and notices the moment something changes.
+    </p>
+  </div>
+</div>
+
+<div class="demo-panel">
+  <div class="section-tag">// live auth simulation</div>
+  <div class="bio-demo">
+    <div class="scenarios">
+      <button class="scenario-btn active" onclick="setScenario('normal')">Authorized User</button>
+      <button class="scenario-btn" onclick="setScenario('anomaly')">Anomaly Detected</button>
+      <button class="scenario-btn" onclick="setScenario('locked')">Session Lockout</button>
+    </div>
+
+    <div class="auth-ring-area">
+      <div class="ring-container">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-bg" cx="70" cy="70" r="56"/>
+          <circle class="ring-fill" id="ringFill" cx="70" cy="70" r="56" stroke="#7b6cff" stroke-dasharray="352 352"/>
+        </svg>
+        <div class="ring-label">
+          <div class="ring-pct" id="ringPct">97%</div>
+          <div class="ring-sub">Confidence</div>
+        </div>
+      </div>
+      <div class="auth-info">
+        <div class="auth-status" id="authStatus">Identity Verified</div>
+        <p class="auth-desc" id="authDesc">Behavioral biometrics match the enrolled profile with high confidence. Full system access granted. Continuous monitoring active.</p>
+        <span class="auth-badge" id="authBadge" style="color:#00ffc8;border:1px solid rgba(0,255,200,0.3);background:rgba(0,255,200,0.06)">● FULL ACCESS</span>
+      </div>
+    </div>
+
+    <div class="signals-grid">
+      <div class="signal-card">
+        <div class="signal-name">Keystroke Rhythm</div>
+        <div class="signal-bar"><div class="signal-fill" id="sig1" style="width:92%;background:#7b6cff"></div></div>
+        <div class="signal-val" id="sigv1" style="color:#7b6cff">Match: 92%</div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-name">Mouse Dynamics</div>
+        <div class="signal-bar"><div class="signal-fill" id="sig2" style="width:95%;background:#7b6cff"></div></div>
+        <div class="signal-val" id="sigv2" style="color:#7b6cff">Match: 95%</div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-name">Click Cadence</div>
+        <div class="signal-bar"><div class="signal-fill" id="sig3" style="width:89%;background:#7b6cff"></div></div>
+        <div class="signal-val" id="sigv3" style="color:#7b6cff">Match: 89%</div>
+      </div>
+    </div>
+
+    <div class="anomaly-area">
+      <div class="anomaly-title">Auth Event Stream</div>
+      <div class="anomaly-list" id="anomalyList">
+        <div class="anomaly-item ok"><div class="anomaly-dot"></div><span class="anomaly-msg">Session authenticated — user profile loaded</span><span class="anomaly-time">00:00:01</span></div>
+        <div class="anomaly-item ok"><div class="anomaly-dot"></div><span class="anomaly-msg">Keystroke dynamics nominal — 94% match</span><span class="anomaly-time">00:00:03</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content-section">
+  <div class="content-block">
+    <h2>How It Works</h2>
+    <ul class="step-list">
+      <li class="step-item"><span class="step-num">STEP 01</span><div class="step-text"><strong>Profile Enrollment</strong>During a short calibration period, the system builds a behavioral fingerprint from keystroke timing, pressure patterns, and mouse movement trajectories unique to each user.</div></li>
+      <li class="step-item"><span class="step-num">STEP 02</span><div class="step-text"><strong>Continuous Background Scoring</strong>A lightweight kernel service samples input event data every 200ms and scores it against the enrolled profile using a local anomaly detection model.</div></li>
+      <li class="step-item"><span class="step-num">STEP 03</span><div class="step-text"><strong>Graduated Response</strong>Confidence score drops trigger a graduated response: low score = privilege drop to guest; critically low = full session lock + administrator alert.</div></li>
+      <li class="step-item"><span class="step-num">STEP 04</span><div class="step-text"><strong>Re-authentication Flow</strong>Locked sessions prompt for PIN or biometric hardware re-auth. The behavioral model updates its profile to account for normal day-to-day variance.</div></li>
+    </ul>
+  </div>
+  <div class="content-block">
+    <h2>Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case">
+        <div class="use-case-title">Government & Defense</div>
+        <div class="use-case-desc">Classified terminals are protected against physical session hijacking — even if an authorized user steps away for seconds without locking the screen.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Financial Trading Floors</div>
+        <div class="use-case-desc">High-value trading workstations can detect unauthorized access attempts instantly — reducing insider threat exposure without disrupting workflow.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Healthcare Records Access</div>
+        <div class="use-case-desc">Hospital terminals with sensitive patient data benefit from continuous auth — HIPAA compliance without requiring repeated manual authentication.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Remote Work Security</div>
+        <div class="use-case-desc">Detect when a remote worker's device is being used by an unauthorized person — closing a major gap in BYOD and remote access security policies.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-nav">
+  <a href="02-filesystem.html">← 02 — Semantic File System</a>
+  <a href="04-mesh.html">04 — Edge-Caching Mesh →</a>
+</div>
+
+<script>
+let currentScenario = 'normal';
+let tick = 5;
+const list = document.getElementById('anomalyList');
+
+function pad(n){return String(n).padStart(2,'0');}
+
+function addEvent(type,msg){
+  const item = document.createElement('div');
+  item.className = 'anomaly-item '+type;
+  item.innerHTML = `<div class="anomaly-dot"></div><span class="anomaly-msg">${msg}</span><span class="anomaly-time">00:00:${pad(tick++)}</span>`;
+  list.appendChild(item);
+  if(list.children.length>12) list.removeChild(list.children[0]);
+}
+
+const scenarios = {
+  normal: {
+    confidence:97, color:'#7b6cff', statusText:'Identity Verified',
+    desc:'Behavioral biometrics match the enrolled profile with high confidence. Full system access granted. Continuous monitoring active.',
+    badge:'● FULL ACCESS', badgeColor:'#00ffc8', badgeBg:'rgba(0,255,200,0.06)', badgeBorder:'rgba(0,255,200,0.3)',
+    signals:[92,95,89], events:[
+      ['ok','Keystroke dynamics nominal'],
+      ['ok','Mouse movement pattern consistent with profile'],
+      ['ok','Confidence score stable at 97%'],
+    ]
+  },
+  anomaly: {
+    confidence:44, color:'#ffb800', statusText:'Anomaly Detected',
+    desc:'Behavioral patterns deviate significantly from enrolled profile. Privilege level reduced to Guest. Monitoring intensified — awaiting re-authentication.',
+    badge:'⚠ GUEST MODE', badgeColor:'#ffb800', badgeBg:'rgba(255,184,0,0.06)', badgeBorder:'rgba(255,184,0,0.3)',
+    signals:[38,51,28], events:[
+      ['warn','Keystroke rhythm deviation: 62% mismatch'],
+      ['warn','Typing speed anomaly detected — 3.2σ above baseline'],
+      ['alert','Confidence dropped below threshold (44%)'],
+      ['warn','Privileges reduced to guest — admin notified'],
+    ]
+  },
+  locked: {
+    confidence:12, color:'#ff4d6a', statusText:'Session Locked',
+    desc:'Critical confidence failure. Session fully locked. Behavioral signature does not match any enrolled profile. Re-authentication required to restore access.',
+    badge:'🔒 LOCKED', badgeColor:'#ff4d6a', badgeBg:'rgba(255,77,106,0.06)', badgeBorder:'rgba(255,77,106,0.3)',
+    signals:[8,15,6], events:[
+      ['alert','Confidence critical: 12% — session lock initiated'],
+      ['alert','Unauthorized user detected at workstation'],
+      ['alert','Security team alerted — incident logged'],
+      ['alert','Awaiting re-authentication or authorized override'],
+    ]
+  }
+};
+
+function setScenario(name) {
+  currentScenario = name;
+  document.querySelectorAll('.scenario-btn').forEach((b,i)=>b.classList.toggle('active',['normal','anomaly','locked'][i]===name));
+  applyScenario(scenarios[name]);
+}
+
+function applyScenario(s) {
+  const circ = 2*Math.PI*56;
+  const fill = (s.confidence/100)*circ;
+  document.getElementById('ringFill').style.strokeDasharray = `${fill} ${circ}`;
+  document.getElementById('ringFill').style.stroke = s.color;
+  document.getElementById('ringPct').textContent = s.confidence+'%';
+  document.getElementById('ringPct').style.color = s.color;
+  document.getElementById('authStatus').textContent = s.statusText;
+  document.getElementById('authStatus').style.color = s.color;
+  document.getElementById('authDesc').textContent = s.desc;
+  const badge = document.getElementById('authBadge');
+  badge.textContent = s.badge;
+  badge.style.color = s.badgeColor;
+  badge.style.background = s.badgeBg;
+  badge.style.border = '1px solid '+s.badgeBorder;
+
+  const sigIds=['sig1','sig2','sig3'];
+  const sigvIds=['sigv1','sigv2','sigv3'];
+  s.signals.forEach((v,i)=>{
+    document.getElementById(sigIds[i]).style.width=v+'%';
+    document.getElementById(sigIds[i]).style.background=s.color;
+    document.getElementById(sigvIds[i]).textContent='Match: '+v+'%';
+    document.getElementById(sigvIds[i]).style.color=s.color;
+  });
+
+  s.events.forEach((ev,i)=>setTimeout(()=>addEvent(ev[0],ev[1]),i*300));
+}
+
+// Initial apply
+applyScenario(scenarios.normal);
+
+// Background jitter for normal mode
+setInterval(()=>{
+  if(currentScenario==='normal'){
+    const base=[92,95,89];
+    ['sig1','sig2','sig3'].forEach((id,i)=>{
+      const v=base[i]+Math.round(Math.random()*6-3);
+      document.getElementById(id).style.width=v+'%';
+      document.getElementById(['sigv1','sigv2','sigv3'][i]).textContent='Match: '+v+'%';
+    });
+    const conf=97+Math.round(Math.random()*4-2);
+    const circ=2*Math.PI*56;
+    document.getElementById('ringFill').style.strokeDasharray=`${(conf/100)*circ} ${circ}`;
+    document.getElementById('ringPct').textContent=conf+'%';
+  }
+},1500);
+</script>
+</body>
+</html>

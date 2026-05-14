@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 — Edge-Caching Mesh / SYS.LAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#080a0f;--surface:#0e1117;--border:#1e2330;--text:#e8eaf0;--muted:#5a6070;--accent:#ffb800;--accent-dim:rgba(255,184,0,0.08);}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .ambient{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;}
+  .a1{width:500px;height:500px;background:var(--accent);bottom:-100px;left:-100px;opacity:0.06;}
+  .a2{width:300px;height:300px;background:#00c2ff;top:0;right:0;opacity:0.04;}
+
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 48px;border-bottom:1px solid var(--border);background:rgba(8,10,15,0.85);backdrop-filter:blur(20px);}
+  .nav-logo{font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
+  .nav-logo span{color:var(--muted);}
+  .nav-back{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .nav-back:hover{color:var(--accent);}
+
+  .page-hero{position:relative;z-index:1;padding:140px 48px 80px;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:end;}
+  .proto-number{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+  .proto-number::before{content:'';display:block;width:32px;height:1px;background:var(--accent);}
+  .page-domain{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.25em;text-transform:uppercase;padding:4px 10px;border-radius:2px;color:var(--accent);border:1px solid rgba(255,184,0,0.3);background:rgba(255,184,0,0.05);display:inline-block;margin-bottom:24px;}
+  h1{font-size:clamp(40px,5vw,64px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;}
+  h1 .accent{color:var(--accent);}
+  .page-intro{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;}
+
+  .demo-panel{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;}
+  .section-tag{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:32px;display:flex;align-items:center;gap:16px;}
+  .section-tag::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .mesh-demo{background:var(--surface);border:1px solid var(--border);padding:40px;border-radius:4px;}
+
+  /* Network Canvas */
+  .canvas-area{display:flex;gap:40px;margin-bottom:40px;align-items:flex-start;}
+  .network-canvas{position:relative;width:400px;height:320px;flex-shrink:0;background:var(--bg);border:1px solid var(--border);}
+  canvas{display:block;}
+
+  .download-panel{flex:1;display:flex;flex-direction:column;gap:16px;}
+  .dl-title{font-size:16px;font-weight:700;margin-bottom:8px;}
+  .dl-subtitle{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;}
+
+  .chunk-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:16px;}
+  .chunk{width:100%;aspect-ratio:1;border-radius:2px;background:var(--border);transition:background 0.3s,transform 0.2s;}
+  .chunk.loaded{transform:scale(1.05);}
+  .chunk-legend{display:flex;gap:16px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);}
+  .legend-item{display:flex;align-items:center;gap:6px;}
+  .legend-dot{width:10px;height:10px;border-radius:2px;}
+
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+  .stat-box{background:var(--bg);border:1px solid var(--border);padding:16px;}
+  .stat-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;}
+  .stat-val{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--accent);}
+  .stat-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;}
+
+  .sim-btn{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;padding:12px 24px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;border-radius:2px;transition:all 0.2s;margin-top:16px;}
+  .sim-btn:hover{background:var(--accent);color:#080a0f;}
+
+  .peer-list{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:40px;}
+  .peer-card{background:var(--bg);border:1px solid var(--border);padding:16px;}
+  .peer-name{font-size:13px;font-weight:700;margin-bottom:6px;}
+  .peer-role{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;}
+  .peer-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:6px;}
+  .peer-fill{height:100%;border-radius:2px;background:var(--accent);transition:width 0.8s ease;}
+  .peer-stat{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);}
+
+  .content-section{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;display:grid;grid-template-columns:1fr 1fr;gap:60px;}
+  .content-block h2{font-size:28px;font-weight:800;margin-bottom:24px;letter-spacing:-0.02em;}
+  .step-list{list-style:none;display:flex;flex-direction:column;gap:16px;}
+  .step-item{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:2px;}
+  .step-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);border:1px solid rgba(255,184,0,0.3);padding:4px 8px;border-radius:2px;white-space:nowrap;margin-top:2px;}
+  .step-text{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;}
+  .step-text strong{color:var(--text);display:block;margin-bottom:4px;}
+  .use-cases{display:flex;flex-direction:column;gap:12px;}
+  .use-case{border-left:2px solid var(--accent);padding:12px 20px;background:var(--accent-dim);}
+  .use-case-title{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .use-case-desc{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;}
+
+  .page-nav{position:relative;z-index:1;border-top:1px solid var(--border);padding:32px 48px;display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto;}
+  .page-nav a{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .page-nav a:hover{color:var(--accent);}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .page-hero>*{animation:fadeUp 0.5s ease both;}
+  .page-hero>*:nth-child(2){animation-delay:0.1s;}
+  @media(max-width:900px){nav{padding:16px 24px;}.page-hero,.demo-panel,.content-section{padding-left:24px;padding-right:24px;}.page-hero,.content-section{grid-template-columns:1fr;}.canvas-area{flex-direction:column;}.network-canvas{width:100%;}.peer-list{grid-template-columns:1fr;}.page-nav{padding:24px;}}
+</style>
+</head>
+<body>
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+<nav>
+  <a href="index.html" class="nav-logo">SYS<span>.</span>LAB</a>
+  <a href="index.html" class="nav-back">← Back to Index</a>
+</nav>
+
+<div class="page-hero">
+  <div>
+    <div class="proto-number">Prototype 04</div>
+    <div class="page-domain">Distributed Systems & Networking</div>
+    <h1>Edge-Caching<br><span class="accent">Mesh</span><br>Network</h1>
+  </div>
+  <div>
+    <p class="page-intro">
+      Every device on your local network independently pulling the same 2GB OS update from the internet is a bandwidth catastrophe. This prototype transforms idle storage across your local network into a distributed, encrypted P2P cache — so the second download is always local.
+      <br><br>
+      Your smart TV, office PCs, and workstations become a shared, zero-trust cache layer.
+    </p>
+  </div>
+</div>
+
+<div class="demo-panel">
+  <div class="section-tag">// mesh network simulation</div>
+  <div class="mesh-demo">
+
+    <div class="canvas-area">
+      <div class="network-canvas">
+        <canvas id="meshCanvas" width="400" height="320"></canvas>
+      </div>
+      <div class="download-panel">
+        <div class="dl-title">OS Update — Distribution Simulation</div>
+        <div class="dl-subtitle">Downloading: Ubuntu 26.04 LTS (2.3 GB)<br>Method: Peer-to-peer mesh cache</div>
+        <div class="chunk-grid" id="chunkGrid"></div>
+        <div class="chunk-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Local peer</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#00c2ff"></div>Cloud</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--border)"></div>Pending</div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-label">Internet Saved</div>
+            <div class="stat-val" id="savedPct">0%</div>
+            <div class="stat-sub">chunks from local peers</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Est. Speed Gain</div>
+            <div class="stat-val" id="speedGain">—</div>
+            <div class="stat-sub">vs. cloud-only download</div>
+          </div>
+        </div>
+        <button class="sim-btn" id="simBtn" onclick="startSim()">▶ Start Download Simulation</button>
+      </div>
+    </div>
+
+    <div class="peer-list" id="peerList"></div>
+  </div>
+</div>
+
+<div class="content-section">
+  <div class="content-block">
+    <h2>How It Works</h2>
+    <ul class="step-list">
+      <li class="step-item"><span class="step-num">STEP 01</span><div class="step-text"><strong>Chunk & Encrypt</strong>When any device downloads a large file, it is split into encrypted 512KB chunks. Chunk metadata (hash, source, expiry) is broadcast to the local mesh.</div></li>
+      <li class="step-item"><span class="step-num">STEP 02</span><div class="step-text"><strong>Idle Storage Distribution</strong>Chunks are distributed across idle storage of participating devices. No single device stores the full file — it's spread and redundant by design.</div></li>
+      <li class="step-item"><span class="step-num">STEP 03</span><div class="step-text"><strong>Local-First Retrieval</strong>When device #2 requests the same file, the mesh coordinator checks local peers first. Matching chunks are pulled via gigabit LAN — far faster than WAN.</div></li>
+      <li class="step-item"><span class="step-num">STEP 04</span><div class="step-text"><strong>Fallback to Cloud</strong>Any chunks not available locally are pulled from the origin server and simultaneously distributed to the mesh, improving future coverage.</div></li>
+    </ul>
+  </div>
+  <div class="content-block">
+    <h2>Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case">
+        <div class="use-case-title">Corporate Office IT</div>
+        <div class="use-case-desc">Rolling out OS patches or software updates to 500 machines? Pull once from the internet, distribute the rest over internal gigabit LAN — saving terabytes monthly.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">School Networks</div>
+        <div class="use-case-desc">Schools with limited internet bandwidth can distribute educational software and curriculum packages across student devices via local Wi-Fi mesh.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Rural & Bandwidth-Limited Networks</div>
+        <div class="use-case-desc">Communities sharing a single satellite connection can dramatically reduce external traffic by caching popular content locally across households.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Smart Home Ecosystems</div>
+        <div class="use-case-desc">IoT firmware updates distributed across smart TVs, hubs, and PCs — no single device needs the full cloud download twice.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-nav">
+  <a href="03-biometric.html">← 03 — Biometric Auth</a>
+  <a href="05-spatial.html">05 — Spatial Interface →</a>
+</div>
+
+<script>
+// Chunk grid setup (32 chunks)
+const CHUNKS = 32;
+const grid = document.getElementById('chunkGrid');
+for(let i=0;i<CHUNKS;i++){
+  const c=document.createElement('div');
+  c.className='chunk';
+  c.id='chunk'+i;
+  grid.appendChild(c);
+}
+
+// Peers
+const peers = [
+  {name:'PC-ALPHA', role:'Primary Cache', storage:78, chunks:21, color:'#ffb800'},
+  {name:'PC-BETA', role:'Cache Node', storage:45, chunks:7, color:'#00ffc8'},
+  {name:'SMART-TV-1', role:'Cache Node', storage:23, chunks:4, color:'#7b6cff'},
+  {name:'PC-GAMMA', role:'Requestor', storage:60, chunks:0, color:'#00c2ff'},
+  {name:'NAS-UNIT', role:'Storage Node', storage:92, chunks:0, color:'#ff4d6a'},
+  {name:'CLOUD', role:'Origin Server', storage:100, chunks:0, color:'#5a6070'},
+];
+
+const peerList = document.getElementById('peerList');
+peers.slice(0,5).forEach((p,i)=>{
+  peerList.innerHTML+=`
+    <div class="peer-card">
+      <div class="peer-name">${p.name}</div>
+      <div class="peer-role" style="color:${p.color}">${p.role}</div>
+      <div class="peer-bar"><div class="peer-fill" id="pbar${i}" style="width:${p.storage}%;background:${p.color}"></div></div>
+      <div class="peer-stat" id="pstat${i}">Storing: ${p.chunks} chunks</div>
+    </div>`;
+});
+
+// Canvas network graph
+const canvas = document.getElementById('meshCanvas');
+const ctx = canvas.getContext('2d');
+
+const nodePositions = [
+  {x:200,y:60,label:'CLOUD',color:'#5a6070'},
+  {x:80,y:140,label:'PC-α',color:'#ffb800'},
+  {x:200,y:180,label:'PC-β',color:'#00ffc8'},
+  {x:320,y:140,label:'TV',color:'#7b6cff'},
+  {x:80,y:260,label:'PC-γ',color:'#00c2ff'},
+  {x:320,y:260,label:'NAS',color:'#ff4d6a'},
+];
+
+const edges=[[0,1],[0,2],[0,3],[1,2],[2,3],[1,4],[3,5],[2,4],[2,5]];
+
+let packets=[];
+let animRunning=false;
+
+function drawNetwork(){
+  ctx.clearRect(0,0,400,320);
+  // edges
+  edges.forEach(([a,b])=>{
+    ctx.beginPath();
+    ctx.moveTo(nodePositions[a].x,nodePositions[a].y);
+    ctx.lineTo(nodePositions[b].x,nodePositions[b].y);
+    ctx.strokeStyle='rgba(30,35,48,0.8)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+  });
+  // packets
+  packets.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,4,0,Math.PI*2);
+    ctx.fillStyle=p.color;
+    ctx.fill();
+    ctx.shadowBlur=8;
+    ctx.shadowColor=p.color;
+    ctx.fill();
+    ctx.shadowBlur=0;
+  });
+  // nodes
+  nodePositions.forEach(n=>{
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,14,0,Math.PI*2);
+    ctx.fillStyle='#0e1117';
+    ctx.fill();
+    ctx.strokeStyle=n.color;
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.fillStyle=n.color;
+    ctx.font='bold 9px Space Mono, monospace';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(n.label,n.x,n.y);
+  });
+}
+
+function spawnPacket(fromIdx,toIdx,color){
+  const from=nodePositions[fromIdx];
+  const to=nodePositions[toIdx];
+  packets.push({x:from.x,y:from.y,tx:to.x,ty:to.y,color,progress:0,speed:0.04+Math.random()*0.02});
+}
+
+let chunksDone=0;
+let localChunks=0;
+let simRunning=false;
+let simInterval=null;
+
+function startSim(){
+  if(simRunning)return;
+  simRunning=true;
+  document.getElementById('simBtn').textContent='⏳ Downloading...';
+  chunksDone=0;localChunks=0;
+  for(let i=0;i<CHUNKS;i++){
+    const el=document.getElementById('chunk'+i);
+    el.style.background='var(--border)';
+    el.classList.remove('loaded');
+  }
+
+  // Order: mostly from peers (amber), some from cloud (blue)
+  const chunkOrder=[];
+  for(let i=0;i<CHUNKS;i++) chunkOrder.push(i);
+  chunkOrder.sort(()=>Math.random()-0.5);
+  const localCount=Math.floor(CHUNKS*0.82);
+
+  simInterval=setInterval(()=>{
+    if(chunksDone>=CHUNKS){
+      clearInterval(simInterval);
+      document.getElementById('simBtn').textContent='✓ Download Complete — Restart';
+      document.getElementById('simBtn').onclick=()=>{simRunning=false;startSim();};
+      return;
+    }
+    const idx=chunkOrder[chunksDone];
+    const isLocal=chunksDone<localCount;
+    const el=document.getElementById('chunk'+idx);
+    el.style.background=isLocal?'#ffb800':'#00c2ff';
+    el.classList.add('loaded');
+    if(isLocal){
+      localChunks++;
+      // Packet from random local peer to PC-gamma (idx 4)
+      const peer=[1,2,3,5][Math.floor(Math.random()*4)];
+      spawnPacket(peer,4,'#ffb800');
+    } else {
+      spawnPacket(0,4,'#00c2ff');
+    }
+    chunksDone++;
+    const savedPct=Math.round((localChunks/CHUNKS)*100);
+    document.getElementById('savedPct').textContent=savedPct+'%';
+    document.getElementById('speedGain').textContent=savedPct>0?(Math.round(savedPct*0.08+1.2)*10/10).toFixed(1)+'×':'—';
+  },180);
+  animRunning=true;
+}
+
+function animLoop(){
+  packets=packets.filter(p=>p.progress<1);
+  packets.forEach(p=>{
+    p.progress=Math.min(1,p.progress+p.speed);
+    p.x=p.x+(p.tx-p.x)*p.speed*2;
+    p.y=p.y+(p.ty-p.y)*p.speed*2;
+  });
+  drawNetwork();
+  requestAnimationFrame(animLoop);
+}
+
+drawNetwork();
+animLoop();
+</script>
+</body>
+</html>

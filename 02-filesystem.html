@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 — Semantic File System / SYS.LAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#080a0f;--surface:#0e1117;--border:#1e2330;
+    --text:#e8eaf0;--muted:#5a6070;--accent:#ff4d6a;
+    --accent-dim:rgba(255,77,106,0.08);
+  }
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .ambient{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;}
+  .a1{width:600px;height:600px;background:var(--accent);top:-200px;right:-100px;opacity:0.06;}
+  .a2{width:300px;height:300px;background:var(--accent);bottom:0;left:0;opacity:0.04;}
+
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 48px;border-bottom:1px solid var(--border);background:rgba(8,10,15,0.85);backdrop-filter:blur(20px);}
+  .nav-logo{font-family:'Space Mono',monospace;font-size:14px;color:#ff4d6a;letter-spacing:0.1em;text-decoration:none;}
+  .nav-logo span{color:var(--muted);}
+  .nav-back{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .nav-back:hover{color:var(--accent);}
+
+  .page-hero{position:relative;z-index:1;padding:140px 48px 80px;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:end;}
+  .proto-number{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+  .proto-number::before{content:'';display:block;width:32px;height:1px;background:var(--accent);}
+  .page-domain{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.25em;text-transform:uppercase;padding:4px 10px;border-radius:2px;color:var(--accent);border:1px solid rgba(255,77,106,0.3);background:rgba(255,77,106,0.05);display:inline-block;margin-bottom:24px;}
+  h1{font-size:clamp(40px,5vw,64px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;}
+  h1 .accent{color:var(--accent);}
+  .page-intro{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;}
+
+  .demo-panel{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;}
+  .section-tag{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:32px;display:flex;align-items:center;gap:16px;}
+  .section-tag::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .fs-demo{background:var(--surface);border:1px solid var(--border);padding:40px;border-radius:4px;}
+
+  /* Search bar */
+  .search-area{margin-bottom:36px;}
+  .search-bar{display:flex;align-items:center;gap:12px;background:var(--bg);border:1px solid var(--border);padding:16px 20px;border-radius:2px;transition:border-color 0.3s;}
+  .search-bar:focus-within{border-color:var(--accent);}
+  .search-icon{color:var(--accent);font-size:16px;}
+  .search-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;}
+  .search-input::placeholder{color:var(--muted);}
+  .search-btn{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;padding:8px 16px;background:var(--accent);color:#080a0f;border:none;cursor:pointer;border-radius:2px;font-weight:700;transition:opacity 0.2s;}
+  .search-btn:hover{opacity:0.85;}
+
+  .query-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+  .chip{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);border:1px solid var(--border);padding:4px 12px;border-radius:2px;cursor:pointer;transition:all 0.2s;}
+  .chip:hover{color:var(--accent);border-color:rgba(255,77,106,0.4);background:var(--accent-dim);}
+
+  /* Results */
+  .results-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+  .results-grid{display:flex;flex-direction:column;gap:8px;}
+  .file-card{
+    display:flex;align-items:center;gap:20px;
+    background:var(--bg);border:1px solid var(--border);padding:16px 20px;
+    border-radius:2px;cursor:pointer;transition:all 0.25s;
+    animation:slideIn 0.3s ease both;
+  }
+  .file-card:hover{border-color:rgba(255,77,106,0.4);background:var(--accent-dim);}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+  .file-icon{font-size:20px;width:28px;text-align:center;}
+  .file-info{flex:1;}
+  .file-name{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .file-tags{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:2px 8px;border-radius:2px;}
+  .tag-project{color:#00ffc8;background:rgba(0,255,200,0.08);border:1px solid rgba(0,255,200,0.2);}
+  .tag-type{color:#ff4d6a;background:rgba(255,77,106,0.08);border:1px solid rgba(255,77,106,0.2);}
+  .tag-client{color:#7b6cff;background:rgba(123,108,255,0.08);border:1px solid rgba(123,108,255,0.2);}
+  .tag-date{color:#ffb800;background:rgba(255,184,0,0.08);border:1px solid rgba(255,184,0,0.2);}
+  .tag-status{color:#00c2ff;background:rgba(0,194,255,0.08);border:1px solid rgba(0,194,255,0.2);}
+  .file-meta{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);text-align:right;white-space:nowrap;}
+
+  /* No old structure comparison */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px;}
+  .compare-box{background:var(--bg);border:1px solid var(--border);padding:24px;}
+  .compare-label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+  .compare-label.old{color:#ff4d6a;}
+  .compare-label.new{color:#00ffc8;}
+  .tree{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:2;}
+  .tree .folder{color:var(--text);}
+  .tree .file{color:var(--muted);padding-left:16px;}
+  .tree .strike{text-decoration:line-through;opacity:0.4;}
+
+  .content-section{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;display:grid;grid-template-columns:1fr 1fr;gap:60px;}
+  .content-block h2{font-size:28px;font-weight:800;margin-bottom:24px;letter-spacing:-0.02em;}
+  .content-block p{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;margin-bottom:16px;}
+  .step-list{list-style:none;display:flex;flex-direction:column;gap:16px;}
+  .step-item{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:2px;}
+  .step-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);border:1px solid rgba(255,77,106,0.3);padding:4px 8px;border-radius:2px;white-space:nowrap;margin-top:2px;}
+  .step-text{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;}
+  .step-text strong{color:var(--text);display:block;margin-bottom:4px;}
+  .use-cases{display:flex;flex-direction:column;gap:12px;}
+  .use-case{border-left:2px solid var(--accent);padding:12px 20px;background:var(--accent-dim);}
+  .use-case-title{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .use-case-desc{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;}
+
+  .page-nav{position:relative;z-index:1;border-top:1px solid var(--border);padding:32px 48px;display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto;}
+  .page-nav a{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .page-nav a:hover{color:var(--accent);}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .page-hero>*{animation:fadeUp 0.5s ease both;}
+  .page-hero>*:nth-child(2){animation-delay:0.1s;}
+  @media(max-width:900px){nav,page-nav{padding:16px 24px;}.page-hero,.demo-panel,.content-section{padding-left:24px;padding-right:24px;}.page-hero,.content-section,.compare{grid-template-columns:1fr;}.page-nav{padding:24px;}}
+</style>
+</head>
+<body>
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+<nav>
+  <a href="index.html" class="nav-logo">SYS<span>.</span>LAB</a>
+  <a href="index.html" class="nav-back">← Back to Index</a>
+</nav>
+
+<div class="page-hero">
+  <div>
+    <div class="proto-number">Prototype 02</div>
+    <div class="page-domain">Data Storage & Information Retrieval</div>
+    <h1>Semantic<br><span class="accent">File</span><br>System</h1>
+  </div>
+  <div>
+    <p class="page-intro">
+      The hierarchical file system — invented in the 1960s — is still the dominant paradigm for data storage. This prototype replaces it with a relational, NLP-powered layer where files are discovered through natural language, not memorized directory paths.
+      <br><br>
+      Save a file anywhere. Find anything, instantly, by describing it.
+    </p>
+  </div>
+</div>
+
+<div class="demo-panel">
+  <div class="section-tag">// interactive query demo</div>
+  <div class="fs-demo">
+    <div class="search-area">
+      <div class="search-bar">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" id="searchInput" placeholder='Try: "invoices from Project X last month"' />
+        <button class="search-btn" onclick="runSearch()">Query</button>
+      </div>
+      <div class="query-chips">
+        <div class="chip" onclick="setQuery('invoices from Project X last month')">invoices from Project X last month</div>
+        <div class="chip" onclick="setQuery('client presentations Q1 2026')">client presentations Q1 2026</div>
+        <div class="chip" onclick="setQuery('design files for Meridian brand')">design files for Meridian brand</div>
+        <div class="chip" onclick="setQuery('meeting notes this week')">meeting notes this week</div>
+      </div>
+    </div>
+
+    <div class="results-label" id="resultsLabel">— 0 results —</div>
+    <div class="results-grid" id="resultsGrid"></div>
+
+    <div class="compare">
+      <div class="compare-box">
+        <div class="compare-label old">✕ Old Way — Folder Hierarchy</div>
+        <div class="tree">
+          <div class="folder strike">📁 C:\Users\</div>
+          <div class="file strike">📁 Documents\</div>
+          <div class="file strike" style="padding-left:32px">📁 Work\</div>
+          <div class="file strike" style="padding-left:48px">📁 Clients\</div>
+          <div class="file strike" style="padding-left:64px">📁 ProjectX\</div>
+          <div class="file strike" style="padding-left:80px">📄 invoice_final_v3_REAL.pdf</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label new">✓ New Way — Semantic Query</div>
+        <div class="tree">
+          <div style="font-family:'Space Mono',monospace;font-size:12px;color:#00ffc8;line-height:2.2;">
+            > "invoices Project X"<br>
+            <span style="color:var(--muted);">✓ 3 files found in 12ms</span><br>
+            <span style="color:var(--muted);">Tags: [invoice] [Project X]</span><br>
+            <span style="color:var(--muted);">Sorted by: relevance</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content-section">
+  <div class="content-block">
+    <h2>How It Works</h2>
+    <ul class="step-list">
+      <li class="step-item"><span class="step-num">STEP 01</span><div class="step-text"><strong>On-Save NLP Scan</strong>When a file is saved, a local NLP model extracts entities: project names, dates, people, document types, topics, and relationships to other files.</div></li>
+      <li class="step-item"><span class="step-num">STEP 02</span><div class="step-text"><strong>Tag Graph Construction</strong>Tags are stored in a relational graph database, not a flat folder. Files can belong to multiple contexts simultaneously without duplication.</div></li>
+      <li class="step-item"><span class="step-num">STEP 03</span><div class="step-text"><strong>Natural Language Queries</strong>User queries are parsed by the same NLP model, matched against the tag graph using semantic similarity, and ranked by relevance + recency.</div></li>
+      <li class="step-item"><span class="step-num">STEP 04</span><div class="step-text"><strong>Manual Override & Learning</strong>Users can add/remove tags manually. The system learns from corrections, improving tag accuracy over time per-user and per-domain.</div></li>
+    </ul>
+  </div>
+  <div class="content-block">
+    <h2>Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case">
+        <div class="use-case-title">Enterprise Knowledge Management</div>
+        <div class="use-case-desc">Large organizations accumulate massive, disorganized file stores. Semantic retrieval surfaces relevant documents regardless of who saved them or where.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Legal & Compliance Workflows</div>
+        <div class="use-case-desc">Law firms can retrieve all documents related to a case, party, or date range in seconds — without relying on rigid naming conventions.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Personal Productivity</div>
+        <div class="use-case-desc">Stop remembering folder paths. Describe what you need in plain language and find it instantly — even files you haven't touched in years.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Research & Academic Archives</div>
+        <div class="use-case-desc">Papers, datasets, and notes become a queryable knowledge graph — discoverable by concept, author, methodology, or date range.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-nav">
+  <a href="01-thermal.html">← 01 — Thermal Kernel</a>
+  <a href="03-biometric.html">03 — Biometric Auth →</a>
+</div>
+
+<script>
+const DB = [
+  { icon:'📄', name:'Invoice_ProjectX_March2026.pdf', tags:['Project X','Invoice','March 2026','Client: Meridian'], size:'1.2 MB', date:'Mar 28 2026', keywords:['invoice','project x','march','meridian','billing'] },
+  { icon:'📄', name:'Invoice_ProjectX_Feb2026.pdf', tags:['Project X','Invoice','Feb 2026','Client: Meridian'], size:'980 KB', date:'Feb 27 2026', keywords:['invoice','project x','february','meridian','billing'] },
+  { icon:'📊', name:'ProjectX_Budget_Q1.xlsx', tags:['Project X','Finance','Q1 2026','Budget'], size:'2.4 MB', date:'Jan 15 2026', keywords:['project x','budget','finance','spreadsheet','q1'] },
+  { icon:'📊', name:'Meridian_Presentation_Q1.pptx', tags:['Client: Meridian','Presentation','Q1 2026','Sales'], size:'8.7 MB', date:'Mar 10 2026', keywords:['client','presentations','q1','meridian','slides'] },
+  { icon:'🎨', name:'Meridian_Brand_Guidelines_v2.pdf', tags:['Design','Meridian Brand','Identity','2026'], size:'14.3 MB', date:'Feb 3 2026', keywords:['design','meridian','brand','logo','identity','files'] },
+  { icon:'🎨', name:'Meridian_Logo_Final.ai', tags:['Design','Meridian Brand','Logo','Vector'], size:'3.1 MB', date:'Jan 28 2026', keywords:['design','meridian','brand','logo','illustrator','files'] },
+  { icon:'📝', name:'Weekly_Standup_May12.md', tags:['Meeting Notes','This Week','Team','Standup'], size:'12 KB', date:'May 12 2026', keywords:['meeting','notes','this week','standup','weekly'] },
+  { icon:'📝', name:'Client_Call_Meridian_May09.md', tags:['Meeting Notes','This Week','Meridian','Call'], size:'8 KB', date:'May 9 2026', keywords:['meeting','notes','this week','client','call','meridian'] },
+];
+
+function score(file, query) {
+  const q = query.toLowerCase();
+  const words = q.split(/\s+/);
+  let s = 0;
+  words.forEach(w => {
+    if(file.keywords.some(k => k.includes(w))) s += 2;
+    if(file.name.toLowerCase().includes(w)) s += 1;
+    if(file.tags.some(t => t.toLowerCase().includes(w))) s += 1;
+  });
+  return s;
+}
+
+function tagClass(tag) {
+  if(/project|budget|finance/.test(tag.toLowerCase())) return 'tag-project';
+  if(/invoice|presentation|design|meeting|notes/.test(tag.toLowerCase())) return 'tag-type';
+  if(/client|meridian/.test(tag.toLowerCase())) return 'tag-client';
+  if(/2026|q1|march|feb|may|week/.test(tag.toLowerCase())) return 'tag-date';
+  return 'tag-status';
+}
+
+function runSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if(!q) return;
+  const results = DB.map(f => ({ ...f, score: score(f, q) }))
+    .filter(f => f.score > 0)
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 5);
+
+  const grid = document.getElementById('resultsGrid');
+  const label = document.getElementById('resultsLabel');
+  grid.innerHTML = '';
+  label.textContent = `— ${results.length} result${results.length!==1?'s':''} found —`;
+
+  results.forEach((f, i) => {
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.style.animationDelay = (i * 0.06) + 's';
+    card.innerHTML = `
+      <div class="file-icon">${f.icon}</div>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-tags">${f.tags.map(t=>`<span class="tag ${tagClass(t)}">${t}</span>`).join('')}</div>
+      </div>
+      <div class="file-meta">${f.size}<br><span style="color:var(--border)">${f.date}</span></div>`;
+    grid.appendChild(card);
+  });
+
+  if(results.length === 0) {
+    grid.innerHTML = '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--muted);padding:20px;text-align:center;">No matching files — try different keywords</div>';
+  }
+}
+
+function setQuery(q) {
+  document.getElementById('searchInput').value = q;
+  runSearch();
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => { if(e.key === 'Enter') runSearch(); });
+setQuery('invoices from Project X last month');
+</script>
+</body>
+</html>

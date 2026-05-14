@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 — Spatial Interface / SYS.LAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#080a0f;--surface:#0e1117;--border:#1e2330;--text:#e8eaf0;--muted:#5a6070;--accent:#00c2ff;--accent-dim:rgba(0,194,255,0.08);}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .ambient{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;}
+  .a1{width:600px;height:400px;background:var(--accent);top:-100px;right:-100px;opacity:0.06;}
+  .a2{width:300px;height:300px;background:#7b6cff;bottom:0;left:0;opacity:0.04;}
+
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 48px;border-bottom:1px solid var(--border);background:rgba(8,10,15,0.85);backdrop-filter:blur(20px);}
+  .nav-logo{font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
+  .nav-logo span{color:var(--muted);}
+  .nav-back{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .nav-back:hover{color:var(--accent);}
+
+  .page-hero{position:relative;z-index:1;padding:140px 48px 80px;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:end;}
+  .proto-number{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+  .proto-number::before{content:'';display:block;width:32px;height:1px;background:var(--accent);}
+  .page-domain{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.25em;text-transform:uppercase;padding:4px 10px;border-radius:2px;color:var(--accent);border:1px solid rgba(0,194,255,0.3);background:rgba(0,194,255,0.05);display:inline-block;margin-bottom:24px;}
+  h1{font-size:clamp(40px,5vw,64px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;}
+  h1 .accent{color:var(--accent);}
+  .page-intro{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;}
+
+  .demo-panel{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;}
+  .section-tag{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.3em;text-transform:uppercase;margin-bottom:32px;display:flex;align-items:center;gap:16px;}
+  .section-tag::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .spatial-demo{background:var(--surface);border:1px solid var(--border);padding:40px;border-radius:4px;}
+  .demo-layout{display:grid;grid-template-columns:1fr 380px;gap:40px;align-items:flex-start;}
+
+  /* Desk surface */
+  .desk-area{position:relative;}
+  .desk-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+  .desk-surface{
+    width:100%;aspect-ratio:4/3;
+    background:linear-gradient(135deg,#0a0c12 0%,#0e1117 100%);
+    border:1px solid var(--border);position:relative;overflow:hidden;
+    cursor:crosshair;
+  }
+
+  /* Cam feed placeholder */
+  .cam-overlay{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:8px;
+  }
+  .cam-grid{
+    position:absolute;inset:0;
+    background-image:linear-gradient(rgba(0,194,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,0.04) 1px,transparent 1px);
+    background-size:30px 30px;
+  }
+
+  /* Zones */
+  .zone{
+    position:absolute;border:1px dashed;border-radius:2px;
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:4px;
+    cursor:pointer;transition:all 0.2s;
+  }
+  .zone:hover,.zone.active{border-style:solid;}
+  .zone-label{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:0.15em;text-transform:uppercase;text-align:center;}
+  .zone-icon{font-size:18px;}
+
+  /* Cursor/hand indicator */
+  .hand-cursor{
+    position:absolute;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,194,255,0.3);border:2px solid var(--accent);
+    transform:translate(-50%,-50%);pointer-events:none;
+    transition:left 0.1s,top 0.1s;
+    box-shadow:0 0 12px rgba(0,194,255,0.5);
+    z-index:10;
+  }
+
+  /* Gesture trail */
+  .trail{position:absolute;border-radius:50%;pointer-events:none;z-index:9;animation:fadeTrail 0.6s ease forwards;}
+  @keyframes fadeTrail{to{opacity:0;transform:scale(0.3);}}
+
+  /* Zone definitions */
+  #zone-music{top:8%;left:5%;width:28%;height:30%;border-color:rgba(255,184,0,0.4);color:#ffb800;}
+  #zone-music:hover,#zone-music.active{background:rgba(255,184,0,0.06);border-color:#ffb800;}
+  #zone-volume{top:8%;right:5%;width:20%;height:80%;border-color:rgba(0,255,200,0.4);color:#00ffc8;}
+  #zone-volume:hover,#zone-volume.active{background:rgba(0,255,200,0.06);border-color:#00ffc8;}
+  #zone-app{bottom:8%;left:5%;width:28%;height:32%;border-color:rgba(123,108,255,0.4);color:#7b6cff;}
+  #zone-app:hover,#zone-app.active{background:rgba(123,108,255,0.06);border-color:#7b6cff;}
+  #zone-macro{bottom:8%;left:38%;width:22%;height:32%;border-color:rgba(255,77,106,0.4);color:#ff4d6a;}
+  #zone-macro:hover,#zone-macro.active{background:rgba(255,77,106,0.06);border-color:#ff4d6a;}
+
+  /* Volume slider visual inside zone */
+  .volume-bar{position:absolute;bottom:10%;left:50%;transform:translateX(-50%);width:4px;border-radius:2px;background:rgba(0,255,200,0.15);}
+  .volume-fill{position:absolute;bottom:0;left:0;right:0;background:#00ffc8;border-radius:2px;transition:height 0.3s;box-shadow:0 0 8px rgba(0,255,200,0.5);}
+
+  /* Cam chip */
+  .cam-chip{position:absolute;top:8px;left:8px;font-family:'Space Mono',monospace;font-size:9px;color:var(--accent);background:rgba(0,194,255,0.1);border:1px solid rgba(0,194,255,0.3);padding:3px 8px;border-radius:2px;display:flex;align-items:center;gap:6px;}
+  .cam-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 1.5s ease infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  /* Action panel */
+  .action-panel{display:flex;flex-direction:column;gap:16px;}
+  .action-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+  .action-sub{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:8px;}
+
+  .action-event{
+    background:var(--bg);border:1px solid var(--border);padding:16px;
+    border-radius:2px;animation:slideIn 0.3s ease both;
+    border-left:3px solid var(--accent);
+  }
+  .action-event.music{border-left-color:#ffb800;}
+  .action-event.volume{border-left-color:#00ffc8;}
+  .action-event.app{border-left-color:#7b6cff;}
+  .action-event.macro{border-left-color:#ff4d6a;}
+
+  @keyframes slideIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+  .event-gesture{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}
+  .event-action{font-size:13px;font-weight:700;}
+  .event-cmd{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;}
+
+  .zone-config{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .zone-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);padding:10px 14px;font-family:'Space Mono',monospace;font-size:10px;}
+  .zone-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .zone-name{color:var(--text);flex:1;}
+  .zone-action{color:var(--muted);}
+
+  .content-section{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 48px 80px;display:grid;grid-template-columns:1fr 1fr;gap:60px;}
+  .content-block h2{font-size:28px;font-weight:800;margin-bottom:24px;letter-spacing:-0.02em;}
+  .step-list{list-style:none;display:flex;flex-direction:column;gap:16px;}
+  .step-item{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:2px;}
+  .step-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);border:1px solid rgba(0,194,255,0.3);padding:4px 8px;border-radius:2px;white-space:nowrap;margin-top:2px;}
+  .step-text{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;}
+  .step-text strong{color:var(--text);display:block;margin-bottom:4px;}
+  .use-cases{display:flex;flex-direction:column;gap:12px;}
+  .use-case{border-left:2px solid var(--accent);padding:12px 20px;background:var(--accent-dim);}
+  .use-case-title{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .use-case-desc{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;}
+
+  .page-nav{position:relative;z-index:1;border-top:1px solid var(--border);padding:32px 48px;display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto;}
+  .page-nav a{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;transition:color 0.2s;}
+  .page-nav a:hover{color:var(--accent);}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .page-hero>*{animation:fadeUp 0.5s ease both;}
+  .page-hero>*:nth-child(2){animation-delay:0.1s;}
+  @media(max-width:900px){nav{padding:16px 24px;}.page-hero,.demo-panel,.content-section{padding-left:24px;padding-right:24px;}.page-hero,.content-section,.demo-layout{grid-template-columns:1fr;}.page-nav{padding:24px;}}
+</style>
+</head>
+<body>
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+<nav>
+  <a href="index.html" class="nav-logo">SYS<span>.</span>LAB</a>
+  <a href="index.html" class="nav-back">← Back to Index</a>
+</nav>
+
+<div class="page-hero">
+  <div>
+    <div class="proto-number">Prototype 05</div>
+    <div class="page-domain">Human-Computer Interaction</div>
+    <h1>Spatial<br><span class="accent">Virtual</span><br>Interface</h1>
+  </div>
+  <div>
+    <p class="page-intro">
+      What if your desk was a control surface? No touch screen. No expensive hardware. Just a webcam pointing down and computer vision tracking your hands.
+      <br><br>
+      Define zones anywhere on any physical surface and bind them to any system action. Tap the corner of your desk to skip a track. Slide your finger along an edge to change volume. Your desk becomes an invisible macro pad.
+    </p>
+  </div>
+</div>
+
+<div class="demo-panel">
+  <div class="section-tag">// interactive desk surface demo</div>
+  <div class="spatial-demo">
+    <div class="demo-layout">
+      <div class="desk-area">
+        <div class="desk-label">📷 Camera View — Desk Surface Mapped</div>
+        <div class="desk-surface" id="deskSurface">
+          <div class="cam-grid"></div>
+          <div class="cam-chip"><div class="cam-dot"></div>CV ACTIVE</div>
+
+          <div class="zone" id="zone-music">
+            <div class="zone-icon">🎵</div>
+            <div class="zone-label">Music<br>Controls</div>
+          </div>
+          <div class="zone" id="zone-volume">
+            <div class="zone-icon">🔊</div>
+            <div class="zone-label">Volume<br>Slider</div>
+            <div class="volume-bar" id="volBar" style="height:60%">
+              <div class="volume-fill" id="volFill" style="height:60%"></div>
+            </div>
+          </div>
+          <div class="zone" id="zone-app">
+            <div class="zone-icon">⚡</div>
+            <div class="zone-label">App<br>Switch</div>
+          </div>
+          <div class="zone" id="zone-macro">
+            <div class="zone-icon">🎬</div>
+            <div class="zone-label">Scene<br>Macro</div>
+          </div>
+
+          <div class="hand-cursor" id="handCursor" style="display:none"></div>
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="action-title">Gesture Events</div>
+        <div class="action-sub">Click or hover zones to trigger</div>
+        <div id="eventFeed" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div style="margin-top:16px;">
+          <div class="desk-label" style="margin-bottom:12px;">Active Zone Map</div>
+          <div class="zone-config">
+            <div class="zone-row"><div class="zone-dot" style="background:#ffb800"></div><span class="zone-name">Top-Left</span><span class="zone-action">Skip / Play / Pause</span></div>
+            <div class="zone-row"><div class="zone-dot" style="background:#00ffc8"></div><span class="zone-name">Right Edge</span><span class="zone-action">Volume Slide</span></div>
+            <div class="zone-row"><div class="zone-dot" style="background:#7b6cff"></div><span class="zone-name">Bottom-Left</span><span class="zone-action">App Switch</span></div>
+            <div class="zone-row"><div class="zone-dot" style="background:#ff4d6a"></div><span class="zone-name">Bottom-Center</span><span class="zone-action">OBS Scene Macro</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content-section">
+  <div class="content-block">
+    <h2>How It Works</h2>
+    <ul class="step-list">
+      <li class="step-item"><span class="step-num">STEP 01</span><div class="step-text"><strong>Surface Calibration</strong>A downward-facing webcam establishes a reference map of the desk surface using corner markers or automatic homography. Takes under 10 seconds.</div></li>
+      <li class="step-item"><span class="step-num">STEP 02</span><div class="step-text"><strong>Zone Definition</strong>Users draw zones on a calibration UI (or by physically gesturing in front of the camera). Each zone is bound to a system macro: keypress, shell command, media key, or API call.</div></li>
+      <li class="step-item"><span class="step-num">STEP 03</span><div class="step-text"><strong>Real-Time Hand Tracking</strong>A MediaPipe-based CV model tracks fingertip positions at 30fps. Gesture types (tap, hold, swipe, pinch) are classified and mapped to zone interactions.</div></li>
+      <li class="step-item"><span class="step-num">STEP 04</span><div class="step-text"><strong>System Command Dispatch</strong>Recognized gestures within mapped zones fire OS-level input events or API calls — indistinguishable from real keyboard or mouse input to target applications.</div></li>
+    </ul>
+  </div>
+  <div class="content-block">
+    <h2>Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case">
+        <div class="use-case-title">Accessibility Tools</div>
+        <div class="use-case-desc">Users with limited fine motor control can interact with a large physical surface using gross motor movements — no precision clicking required.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Streaming & Content Creation</div>
+        <div class="use-case-desc">Streamers can trigger OBS scene changes, mute/unmute, and run macros without looking away from the camera — the desk becomes an invisible Stream Deck.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Music Production</div>
+        <div class="use-case-desc">Producers can assign desk zones to DAW controls — play/stop, loop toggle, track arming — keeping hands free for instruments during recording.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Industrial Control Panels</div>
+        <div class="use-case-desc">Factory or lab environments can project control interfaces onto any horizontal surface — no touchscreen contamination risks, fully sanitizable surfaces.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-nav">
+  <a href="04-mesh.html">← 04 — Edge-Caching Mesh</a>
+  <a href="index.html">← Back to Index</a>
+</div>
+
+<script>
+const surface = document.getElementById('deskSurface');
+const cursor = document.getElementById('handCursor');
+const feed = document.getElementById('eventFeed');
+const MAX_EVENTS = 5;
+
+const zoneActions = {
+  'zone-music': {
+    class:'music',
+    gestures:['Tap','Double-Tap','Hold'],
+    actions:['Skip Track →','⏮ Previous Track','⏸ Pause / Play'],
+    cmds:['playerctl next','playerctl previous','playerctl play-pause']
+  },
+  'zone-volume': {
+    class:'volume',
+    gestures:['Slide Up','Slide Down','Position'],
+    actions:['Volume +10','Volume -10','Set Volume Level'],
+    cmds:['amixer set Master +10%','amixer set Master -10%','amixer set Master <val>%']
+  },
+  'zone-app': {
+    class:'app',
+    gestures:['Tap','Double-Tap'],
+    actions:['Switch to Next App','Open App Launcher'],
+    cmds:['Alt+Tab','Super key']
+  },
+  'zone-macro': {
+    class:'macro',
+    gestures:['Tap','Hold'],
+    actions:['Switch OBS Scene','Start Recording'],
+    cmds:['obs-cli scene switch "Stream"','obs-cli recording start']
+  }
+};
+
+function addEvent(zoneId) {
+  const zone = zoneActions[zoneId];
+  if(!zone) return;
+  const idx = Math.floor(Math.random()*zone.gestures.length);
+  const div = document.createElement('div');
+  div.className = `action-event ${zone.class}`;
+  div.innerHTML = `
+    <div class="event-gesture">✋ ${zone.gestures[idx]} detected</div>
+    <div class="event-action">${zone.actions[idx]}</div>
+    <div class="event-cmd">> ${zone.cmds[idx]}</div>`;
+  feed.insertBefore(div, feed.firstChild);
+  while(feed.children.length > MAX_EVENTS) feed.removeChild(feed.lastChild);
+}
+
+// Zone click handlers
+Object.keys(zoneActions).forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('click',()=>{
+    el.classList.add('active');
+    setTimeout(()=>el.classList.remove('active'),400);
+    addEvent(id);
+  });
+});
+
+// Mouse tracking on desk surface
+surface.addEventListener('mousemove',e=>{
+  const rect = surface.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  cursor.style.display = 'block';
+  cursor.style.left = x+'px';
+  cursor.style.top = y+'px';
+
+  // Spawn trail
+  const trail = document.createElement('div');
+  trail.className = 'trail';
+  trail.style.cssText = `left:${x}px;top:${y}px;width:8px;height:8px;background:rgba(0,194,255,0.4);transform:translate(-50%,-50%);position:absolute;pointer-events:none;z-index:9;border-radius:50%;`;
+  surface.appendChild(trail);
+  setTimeout(()=>trail.remove(),600);
+
+  // Volume zone: adjust fill
+  const volZone = document.getElementById('zone-volume');
+  const vRect = volZone.getBoundingClientRect();
+  const sRect = surface.getBoundingClientRect();
+  if(x>vRect.left-sRect.left && x<vRect.right-sRect.left && y>vRect.top-sRect.top && y<vRect.bottom-sRect.top){
+    const pct = 100 - ((y-(vRect.top-sRect.top))/(vRect.height))*100;
+    const clamped = Math.max(5, Math.min(95, pct));
+    document.getElementById('volFill').style.height = clamped+'%';
+  }
+});
+
+surface.addEventListener('mouseleave',()=>{ cursor.style.display='none'; });
+
+// Auto-demo: random zone triggers
+const zoneIds = Object.keys(zoneActions);
+let demoIdx = 0;
+setInterval(()=>{
+  const id = zoneIds[demoIdx % zoneIds.length];
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  setTimeout(()=>el.classList.remove('active'),400);
+  addEvent(id);
+  demoIdx++;
+}, 2800);
+</script>
+</body>
+</html>

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 — Predictive Thermal Management / SYS.LAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080a0f; --surface: #0e1117; --border: #1e2330;
+    --text: #e8eaf0; --muted: #5a6070; --accent: #00ffc8;
+    --accent-dim: rgba(0,255,200,0.1);
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  .ambient { position: fixed; border-radius: 50%; filter: blur(130px); pointer-events: none; z-index: 0; }
+  .a1 { width:600px;height:600px;background:var(--accent);top:-200px;left:-200px;opacity:0.07; }
+  .a2 { width:300px;height:300px;background:var(--accent);bottom:0;right:-100px;opacity:0.04; }
+
+  /* NAV */
+  nav {
+    position: fixed; top:0;left:0;right:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 48px;
+    border-bottom:1px solid var(--border);
+    background:rgba(8,10,15,0.85); backdrop-filter:blur(20px);
+  }
+  .nav-logo { font-family:'Space Mono',monospace; font-size:14px; color:var(--accent); letter-spacing:0.1em; text-decoration:none; }
+  .nav-logo span { color: var(--muted); }
+  .nav-back { font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); text-decoration:none; letter-spacing:0.15em; display:flex; align-items:center; gap:8px; transition:color 0.2s; }
+  .nav-back:hover { color: var(--accent); }
+
+  /* HERO */
+  .page-hero {
+    position:relative;z-index:1;
+    padding: 140px 48px 80px;
+    max-width:1200px;margin:0 auto;
+    display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:end;
+  }
+  .proto-number {
+    font-family:'Space Mono',monospace; font-size:11px; color:var(--accent);
+    letter-spacing:0.3em; text-transform:uppercase; margin-bottom:20px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .proto-number::before { content:''; display:block;width:32px;height:1px;background:var(--accent); }
+  .page-domain {
+    font-family:'Space Mono',monospace; font-size:9px; letter-spacing:0.25em;
+    text-transform:uppercase; padding:4px 10px; border-radius:2px;
+    color:var(--accent); border:1px solid rgba(0,255,200,0.3); background:rgba(0,255,200,0.05);
+    display:inline-block; margin-bottom:24px;
+  }
+  h1 { font-size:clamp(40px,5vw,64px); font-weight:800; letter-spacing:-0.03em; line-height:1.1; }
+  h1 .accent { color:var(--accent); }
+  .page-intro { font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); line-height:1.9; }
+
+  /* LIVE DEMO - Thermal Visualizer */
+  .demo-panel {
+    position:relative;z-index:1;
+    max-width:1200px;margin:0 auto;padding:0 48px 80px;
+  }
+  .section-tag {
+    font-family:'Space Mono',monospace; font-size:11px; color:var(--muted);
+    letter-spacing:0.3em; text-transform:uppercase; margin-bottom:32px;
+    display:flex;align-items:center;gap:16px;
+  }
+  .section-tag::after { content:'';flex:1;height:1px;background:var(--border); }
+
+  .thermal-demo {
+    background: var(--surface); border:1px solid var(--border);
+    padding:40px; border-radius:4px;
+  }
+
+  .thermal-header {
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:40px;
+  }
+  .thermal-title { font-size:16px;font-weight:700; }
+  .status-dot {
+    display:flex;align-items:center;gap:8px;
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);
+  }
+  .dot { width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1.5s ease infinite; }
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .cpu-grid {
+    display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:40px;
+  }
+  .cpu-core {
+    background:var(--bg);border:1px solid var(--border);padding:20px;border-radius:2px;
+    text-align:center;position:relative;overflow:hidden;transition:border-color 0.3s;
+  }
+  .core-label { font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.2em;margin-bottom:12px; }
+  .core-temp {
+    font-family:'Space Mono',monospace;font-size:28px;font-weight:700;
+    transition:color 0.5s;
+  }
+  .core-bar {
+    margin-top:12px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;
+  }
+  .core-bar-fill { height:100%;border-radius:2px;transition:width 0.8s ease,background 0.5s; }
+  .core-glow {
+    position:absolute;bottom:0;left:0;right:0;height:30px;
+    opacity:0;transition:opacity 0.5s;filter:blur(10px);
+  }
+
+  .prediction-section {
+    display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px;
+  }
+  .predict-card { background:var(--bg);border:1px solid var(--border);padding:24px; }
+  .predict-label { font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px; }
+  .predict-value { font-family:'Space Mono',monospace;font-size:20px;color:var(--accent);font-weight:700;margin-bottom:8px; }
+  .predict-sub { font-family:'Space Mono',monospace;font-size:10px;color:var(--muted); }
+
+  .fan-control { display:flex;align-items:center;gap:24px;margin-bottom:40px; }
+  .fan-label { font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap; }
+  .fan-track { flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden; }
+  .fan-fill { height:100%;background:var(--accent);border-radius:3px;transition:width 1s ease; }
+  .fan-pct { font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);font-weight:700;width:48px;text-align:right; }
+
+  .event-log {
+    background:var(--bg);border:1px solid var(--border);padding:20px;font-family:'Space Mono',monospace;
+    font-size:11px;line-height:1.8;max-height:160px;overflow:hidden;
+  }
+  .log-line { color:var(--muted);border-bottom:1px solid rgba(30,35,48,0.5);padding:4px 0; }
+  .log-line .ts { color:var(--accent);margin-right:12px; }
+  .log-line .ev { color:var(--text); }
+  .log-line.alert .ev { color: #ff9f43; }
+  .log-line.action .ev { color: var(--accent); }
+
+  /* HOW IT WORKS */
+  .content-section {
+    position:relative;z-index:1;
+    max-width:1200px;margin:0 auto;padding:0 48px 80px;
+    display:grid;grid-template-columns:1fr 1fr;gap:60px;
+  }
+
+  .content-block h2 { font-size:28px;font-weight:800;margin-bottom:24px;letter-spacing:-0.02em; }
+  .content-block p { font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);line-height:1.9;margin-bottom:16px; }
+
+  .step-list { list-style:none;display:flex;flex-direction:column;gap:16px; }
+  .step-item {
+    display:flex;gap:16px;align-items:flex-start;
+    background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:2px;
+  }
+  .step-num {
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);
+    border:1px solid rgba(0,255,200,0.3);padding:4px 8px;border-radius:2px;white-space:nowrap;
+    margin-top:2px;
+  }
+  .step-text { font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8; }
+  .step-text strong { color:var(--text);display:block;margin-bottom:4px; }
+
+  .use-cases { display:flex;flex-direction:column;gap:12px; }
+  .use-case {
+    border-left:2px solid var(--accent);padding:12px 20px;
+    background:var(--accent-dim);
+  }
+  .use-case-title { font-size:14px;font-weight:700;margin-bottom:6px; }
+  .use-case-desc { font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7; }
+
+  /* NAV FOOTER */
+  .page-nav {
+    position:relative;z-index:1;
+    border-top:1px solid var(--border);padding:32px 48px;
+    display:flex;justify-content:space-between;align-items:center;
+    max-width:1200px;margin:0 auto;
+  }
+  .page-nav a {
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);
+    text-decoration:none;letter-spacing:0.15em;display:flex;align-items:center;gap:8px;
+    transition:color 0.2s;
+  }
+  .page-nav a:hover { color:var(--accent); }
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .page-hero > * { animation:fadeUp 0.5s ease both; }
+  .page-hero > *:nth-child(2) { animation-delay:0.1s; }
+
+  @media(max-width:900px){
+    nav{padding:16px 24px;}
+    .page-hero,.demo-panel,.content-section{padding-left:24px;padding-right:24px;}
+    .page-hero,.content-section{grid-template-columns:1fr;}
+    .cpu-grid{grid-template-columns:repeat(2,1fr);}
+    .prediction-section{grid-template-columns:1fr;}
+    .page-nav{padding:24px;}
+  }
+</style>
+</head>
+<body>
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+
+<nav>
+  <a href="index.html" class="nav-logo">SYS<span>.</span>LAB</a>
+  <a href="index.html" class="nav-back">← Back to Index</a>
+</nav>
+
+<div class="page-hero">
+  <div>
+    <div class="proto-number">Prototype 01</div>
+    <div class="page-domain">OS & Hardware Management</div>
+    <h1>Predictive<br>Thermal<br><span class="accent">Kernel</span></h1>
+  </div>
+  <div>
+    <p class="page-intro">
+      Traditional cooling systems are entirely reactive — fans spin up only after temperatures have already climbed. This kernel module changes the paradigm entirely, using a lightweight on-device ML model to <em>predict</em> thermal spikes from process queues and system-call patterns before they breach critical thresholds.
+      <br><br>
+      The result: smoother performance, extended battery life, and zero throttling events in continuous use.
+    </p>
+  </div>
+</div>
+
+<!-- LIVE DEMO -->
+<div class="demo-panel">
+  <div class="section-tag">// live simulation</div>
+  <div class="thermal-demo">
+    <div class="thermal-header">
+      <div class="thermal-title">Thermal Control Dashboard</div>
+      <div class="status-dot"><div class="dot"></div>ML MODULE ACTIVE</div>
+    </div>
+
+    <div class="cpu-grid" id="coreGrid"></div>
+
+    <div class="prediction-section">
+      <div class="predict-card">
+        <div class="predict-label">Next-Spike Prediction</div>
+        <div class="predict-value" id="predTime">4.2s</div>
+        <div class="predict-sub">Time until predicted thermal event</div>
+      </div>
+      <div class="predict-card">
+        <div class="predict-label">Pre-emptive Action</div>
+        <div class="predict-value" id="predAction">RAMP FANS</div>
+        <div class="predict-sub">Scheduled intervention</div>
+      </div>
+    </div>
+
+    <div class="fan-control">
+      <div class="fan-label">Fan Speed</div>
+      <div class="fan-track"><div class="fan-fill" id="fanFill" style="width:40%"></div></div>
+      <div class="fan-pct" id="fanPct">40%</div>
+    </div>
+
+    <div class="event-log" id="eventLog">
+      <div class="log-line"><span class="ts">[00:00:01]</span><span class="ev">Thermal management module initialized</span></div>
+      <div class="log-line action"><span class="ts">[00:00:02]</span><span class="ev">ML model loaded — monitoring system calls</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="content-section">
+  <div class="content-block">
+    <h2>How It Works</h2>
+    <ul class="step-list">
+      <li class="step-item"><span class="step-num">STEP 01</span><div class="step-text"><strong>System Call Interception</strong>A kernel hook monitors all active processes, network I/O queues, and pending system calls — extracting features that correlate with upcoming CPU/GPU load.</div></li>
+      <li class="step-item"><span class="step-num">STEP 02</span><div class="step-text"><strong>ML Prediction Engine</strong>A lightweight LSTM-based model (under 2MB) trained on thermal–workload telemetry predicts spike magnitude and timing 3–8 seconds ahead.</div></li>
+      <li class="step-item"><span class="step-num">STEP 03</span><div class="step-text"><strong>Pre-emptive Intervention</strong>Based on predicted load, the module ramps cooling, migrates background tasks to efficiency cores, or throttles non-critical threads <em>before</em> heat accumulates.</div></li>
+      <li class="step-item"><span class="step-num">STEP 04</span><div class="step-text"><strong>Adaptive Feedback Loop</strong>Prediction accuracy is logged and the model is fine-tuned continuously against actual thermal outcomes, improving per-device precision over time.</div></li>
+    </ul>
+  </div>
+  <div class="content-block">
+    <h2>Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case">
+        <div class="use-case-title">Ultra-Thin Laptops</div>
+        <div class="use-case-desc">Devices with minimal thermal headroom benefit most — eliminating throttle events during sustained creative workloads like video encoding or 3D rendering.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">High-Density Server Racks</div>
+        <div class="use-case-desc">Data centers can reduce HVAC costs by proactively redistributing workloads across nodes before localized hotspots form, improving PUE across the facility.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Gaming Hardware</div>
+        <div class="use-case-desc">Sustained gaming sessions produce predictable load signatures. The module can pre-ramp cooling at scene transitions, keeping frame times consistent.</div>
+      </div>
+      <div class="use-case">
+        <div class="use-case-title">Edge AI Inference Devices</div>
+        <div class="use-case-desc">Small-form-factor AI accelerators can schedule burst inference windows within safe thermal envelopes without passive thermal guards.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-nav">
+  <a href="index.html">← All Prototypes</a>
+  <a href="02-filesystem.html">02 — Semantic File System →</a>
+</div>
+
+<script>
+  // Thermal simulation
+  const cores = [
+    { name: 'Core 0', base: 42 },
+    { name: 'Core 1', base: 45 },
+    { name: 'Core 2', base: 38 },
+    { name: 'Core 3', base: 50 },
+  ];
+
+  const grid = document.getElementById('coreGrid');
+  cores.forEach((c, i) => {
+    grid.innerHTML += `
+      <div class="cpu-core" id="core${i}">
+        <div class="core-glow" id="glow${i}"></div>
+        <div class="core-label">${c.name}</div>
+        <div class="core-temp" id="temp${i}">${c.base}°C</div>
+        <div class="core-bar"><div class="core-bar-fill" id="bar${i}" style="width:${c.base}%"></div></div>
+      </div>`;
+  });
+
+  const log = document.getElementById('eventLog');
+  let tick = 3;
+  const events = [
+    { t: 'alert', msg: 'High load detected: video encoder process queued' },
+    { t: 'action', msg: 'Pre-emptive fan ramp initiated (40% → 78%)' },
+    { t: '', msg: 'Core 1 temp rising: 45°C → 62°C (predicted: 68°C)' },
+    { t: 'action', msg: 'Background tasks migrated to efficiency cores' },
+    { t: '', msg: 'ML model confidence: 94.2% — spike predicted in 2.1s' },
+    { t: 'action', msg: 'Thermal throttle avoided — peak held at 71°C' },
+    { t: '', msg: 'Workload normalized — cooling ramped down to 55%' },
+    { t: 'action', msg: 'Model feedback loop: telemetry logged for retraining' },
+  ];
+  let evIdx = 0;
+  let phase = 0; // 0=idle,1=rising,2=peak,3=cooling
+
+  function pad(n){return String(n).padStart(2,'0');}
+
+  function addLog(type, msg) {
+    const line = document.createElement('div');
+    line.className = `log-line${type?' '+type:''}`;
+    line.innerHTML = `<span class="ts">[00:00:${pad(tick++)}]</span><span class="ev">${msg}</span>`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    if(log.children.length > 20) log.removeChild(log.children[2]);
+  }
+
+  function tempColor(t) {
+    if(t < 50) return '#00ffc8';
+    if(t < 70) return '#ffb800';
+    return '#ff4d6a';
+  }
+
+  let phaseTimer = 0;
+  setInterval(() => {
+    phaseTimer++;
+    let temps;
+    let fanSpeed;
+    let predTime, predAction;
+
+    if(phaseTimer < 8) {
+      phase = 0;
+      temps = cores.map(c => c.base + Math.random()*4 - 2);
+      fanSpeed = 40;
+      predTime = (8 - phaseTimer).toFixed(1) + 's';
+      predAction = 'STANDBY';
+    } else if(phaseTimer < 12) {
+      phase = 1;
+      const r = (phaseTimer - 8) / 4;
+      temps = cores.map((c,i) => c.base + r * [28,32,20,35][i] + Math.random()*3);
+      fanSpeed = 40 + r * 40;
+      predTime = ((12 - phaseTimer) * 0.5).toFixed(1) + 's';
+      predAction = 'RAMP FANS';
+    } else if(phaseTimer < 18) {
+      phase = 2;
+      temps = cores.map((c,i) => [70,78,62,82][i] + Math.random()*4 - 2);
+      fanSpeed = 85;
+      predTime = 'NOW';
+      predAction = 'MIGRATE TASKS';
+    } else if(phaseTimer < 26) {
+      phase = 3;
+      const r = (phaseTimer - 18) / 8;
+      temps = cores.map((c,i) => [70,78,62,82][i] * (1-r) + cores[i].base * r + Math.random()*3);
+      fanSpeed = 85 - r * 45;
+      predTime = 'STABLE';
+      predAction = 'MONITORING';
+    } else {
+      phaseTimer = 0;
+    }
+
+    if(temps) {
+      temps.forEach((t, i) => {
+        const tEl = document.getElementById('temp'+i);
+        const bEl = document.getElementById('bar'+i);
+        const gEl = document.getElementById('glow'+i);
+        const temp = Math.round(t);
+        tEl.textContent = temp + '°C';
+        tEl.style.color = tempColor(temp);
+        const pct = Math.min(100, (temp / 100) * 100);
+        bEl.style.width = pct + '%';
+        bEl.style.background = tempColor(temp);
+        const hot = temp > 65;
+        gEl.style.opacity = hot ? '0.3' : '0';
+        gEl.style.background = tempColor(temp);
+        document.getElementById('core'+i).style.borderColor = hot ? tempColor(temp) + '44' : 'var(--border)';
+      });
+
+      const fs = Math.round(fanSpeed);
+      document.getElementById('fanFill').style.width = fs + '%';
+      document.getElementById('fanPct').textContent = fs + '%';
+      document.getElementById('predTime').textContent = predTime;
+      document.getElementById('predAction').textContent = predAction;
+    }
+
+    if(evIdx < events.length && Math.random() < 0.3) {
+      const ev = events[evIdx++];
+      addLog(ev.t, ev.msg);
+    }
+    if(evIdx >= events.length && phaseTimer === 0) evIdx = 0;
+  }, 800);
+</script>
+</body>
+</html>
